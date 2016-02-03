@@ -270,6 +270,18 @@ if strncmp(protocolName,'GRF',3)
     'BackgroundColor', backgroundColor,...
     'Style','checkbox','String','n','FontSize',fontSizeSuperTiny, 'Callback',{@selNumTrials_Callback});
 
+    ignoreTrials = 1;
+    hIgnoreTrials = uicontrol('Parent',hSelectParamPanel,'Unit','Normalized', ...
+    'Position',[0 1-3*selectParamHeight 0.35 selectParamHeight],...
+    'BackgroundColor', backgroundColor,...
+    'Style','checkbox','String','ignoreTrials','FontSize',fontSizeSuperTiny, 'Callback',{@ignoreTrials_Callback});
+
+    ignoreTrialNum = [];
+    hIgnoreTrialNum = uicontrol('Parent',hSelectParamPanel,'Unit','Normalized', ...
+    'BackgroundColor', backgroundColor, ...
+    'Position',[0.4 1-3*selectParamHeight 0.55 selectParamHeight], ...
+    'Style','edit','String','','FontSize',fontSizeSuperTiny, 'Callback',{@ignoreTrialNum_Callback});
+
 elseif strncmp(protocolName,'CRS',3)
     %[Vinay] - create 3 columns corresponding to the parameters of the 3 gabors
     %-Centre, Ring, Surround. Textwidth = 0.4, C,R,S popout - each 0.2 width
@@ -534,7 +546,7 @@ hChooseWidth = uicontrol('Parent',hPlotOptionsPanel,'Unit','Normalized', ...
 
 
 % Analysis Type
-analysisTypeString = 'ERP|FFT|delta FFT|Band Power|Firing Rate|Raster|STA|Get Plots';
+analysisTypeString = 'ERP|FFT|delta FFT|Band Power|Firing Rate|Raster|STA|Get Plots|All LFP|All Spikes';
 uicontrol('Parent',hPlotOptionsPanel,'Unit','Normalized', ...
     'Position',[0 1-3*plotOptionsHeight 0.6 plotOptionsHeight], ...
     'Style','text','String','Analysis Type','FontSize',fontSizeSmall);
@@ -641,6 +653,17 @@ if strncmp(protocolName,'CRS',3)
     'BackgroundColor', backgroundColor,...
     'Style','checkbox','String','n','FontSize',fontSizeSuperTiny, 'Callback',{@selNumTrials_Callback});
 
+    ignoreTrials = 0;
+    hIgnoreTrials = uicontrol('Parent',hSelectParamPanel,'Unit','Normalized', ...
+    'Position',[0 1-3*selectParamHeight 0.45 selectParamHeight],...
+    'BackgroundColor', backgroundColor,...
+    'Style','checkbox','String','ignoreTrials','FontSize',fontSizeSuperTiny, 'Callback',{@ignoreTrials_Callback});
+
+    ignoreTrialNum = [];
+    hIgnoreTrialNum = uicontrol('Parent',hSelectParamPanel,'Unit','Normalized', ...
+    'BackgroundColor', backgroundColor, ...
+    'Position',[0.4 1-3*selectParamHeight 0.55 selectParamHeight], ...
+    'Style','edit','String','','FontSize',fontSizeSuperTiny, 'Callback',{@ignoreTrialNum_Callback});
 
 
     %:::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -884,6 +907,14 @@ hMPnumAtoms = uicontrol('Parent',hTFParamsPanel,'Unit','Normalized', ...
     'BackgroundColor', backgroundColor, 'Position', ...
     [(xPanel2+textWidth) (1-textHeight) textWidth textHeight], ...
     'Style','edit','String',numAtomsMP,'FontSize',fontSizeTiny,'Callback',{@resetMPParams_Callback}); % initialize numAtoms = 100
+
+
+% analyze baseline and stimulus epochs separately and compare
+mpAnalyzeEpochs = 1;
+hMPAnalyzeEpochs = uicontrol('Parent',hTFParamsPanel,'Unit','Normalized', ...
+    'BackgroundColor', backgroundColor, ...
+    'Position',[xPanel2 (1-2*textHeight) textWidth textHeight], ...
+    'Style','checkbox','String','analyzeEpochs','FontSize',fontSizeSuperTiny, 'Callback',{@resetMPParamsEpoch_Callback});
 
 
 %----HHT parameters-----
@@ -1134,7 +1165,7 @@ uicontrol('Parent',hTFPlotSettingsPanel,'Unit','Normalized', ...
         
         spikeChannelNumber = [];
         unitID = [];
-        if analysisType == 5 || analysisType == 6 || analysisType==7 || analysisType==8 % Spike related
+        if analysisType == 5 || analysisType == 6 || analysisType==7 || analysisType==8 || analysisType==10 % Spike related
             
             if strncmp(gridType,'Microelectrode',5)
                 spikeChannelPos = get(hNeuralChannel,'val');
@@ -1154,7 +1185,7 @@ uicontrol('Parent',hTFPlotSettingsPanel,'Unit','Normalized', ...
             analysisType,timeVals,plotColor,BLMin,BLMax,STMin,STMax,folderName, protocolNumber, notchData,useBipolar,plotSEM,holdOnState,plotLineWidth,...
             protocolName,useAllBadTrials,mtmParams,movingWin,fBandLow,fBandHigh,...
             spikeChannelNumber,unitID,STAMin,STAMax,removeMeanSTA,folderSpikes,cmin,cmax,fftmin,fftmax,tmin,tmax,drawStim,drawERP,drawFR,drawTF,drawTrends,...
-            subjectName,expDate,gridType,title1ON,title2ON,nShow);
+            subjectName,expDate,gridType,title1ON,title2ON,nShow,ignoreTrials,ignoreTrialNum);
         
 
         if analogChannelPos<=length(analogChannelsStored)
@@ -1162,14 +1193,16 @@ uicontrol('Parent',hTFPlotSettingsPanel,'Unit','Normalized', ...
         else
             channelNumber = 0;
         end
-        if analysisType==7 || analysisType==5 || analysisType==6 
+        if analysisType==7 || analysisType==5 || analysisType==6 || analysisType==10
             channelNumber = [channelNumber spikeChannelNumber];
         end
 
 
-        if analysisType==1 || analysisType==4 || analysisType==5 || analysisType==6 || analysisType==7 % ERP or Band Power or Spikes (vs time)
+        if analysisType==1 || analysisType==4 || analysisType==5 || analysisType==6 || analysisType==7 || analysisType==9 % ERP or Band Power or Spikes (vs time)
             xMin = str2double(get(hStimMin,'String'));
             xMax = str2double(get(hStimMax,'String'));
+        elseif analysisType == 10
+            xMin = 0; xMax = 48;
         else
             xMin = str2double(get(hFFTMin,'String'));
             xMax = str2double(get(hFFTMax,'String'));
@@ -1187,7 +1220,7 @@ uicontrol('Parent',hTFPlotSettingsPanel,'Unit','Normalized', ...
         analysisType = get(hAnalysisType,'val');
         plotStyle = get(hTFPlotStyle,'val');
         
-        if analysisType==1 || analysisType==4 || analysisType==5 || analysisType==6 || analysisType==7 % ERP or Band Power or Spikes (vs time)
+        if analysisType==1 || analysisType==4 || analysisType==5 || analysisType==6 || analysisType==7 || analysisType==9 || analysisType==10 % ERP or Band Power or Spikes (vs time)
             xMin = str2double(get(hStimMin,'String'));
             xMax = str2double(get(hStimMax,'String'));
         else
@@ -1222,7 +1255,7 @@ uicontrol('Parent',hTFPlotSettingsPanel,'Unit','Normalized', ...
 
         analysisType = get(hAnalysisType,'val');
 
-        if analysisType==1 || analysisType==4 || analysisType==5 || analysisType==6 || analysisType==7 % ERP or Band Power or Spikes (vs time)
+        if analysisType==1 || analysisType==4 || analysisType==5 || analysisType==6 || analysisType==7 || analysisType==9 || analysisType==10 % ERP or Band Power or Spikes (vs time)
             xMin = str2double(get(hStimMin,'String'));
             xMax = str2double(get(hStimMax,'String'));
         else
@@ -1522,6 +1555,11 @@ end
         numAtomsMP = str2double(get(hMPnumAtoms,'String'));
     end
 
+    function resetMPParamsEpoch_Callback(hObject,~,~)
+        mpAnalyzeEpochs = get(hObject,'val');
+    end
+
+
     function resetTFSettings_Callback(~,~)
         plotStyle = get(hTFPlotStyle,'val');
         spectrumType = get(hTFSpectrumType,'val');
@@ -1602,6 +1640,7 @@ end
         
         % MP
         numAtomsMP = str2double(get(hMPnumAtoms,'String'));
+        mpAnalyzeEpochs = get(hMPAnalyzeEpochs,'val');
         
         % HHT
         Nstd = str2double(get(hHHTnstd,'String'));
@@ -1648,7 +1687,7 @@ end
         tfplotLFPDataVaryParameters1Channel(hVaryParamTFPlot,analogChannelString,analogChannelString2,a,e,s,f,o,c,t,r,p,gabor7, param7, gabor8, param8,folderLFP,...
             timeVals,plotColor,BLMin,BLMax,STMin,STMax,folderName, protocolNumber, notchData,useBipolar,...
             tfMethod,mtmParams,movingWin,numAtomsMP,plotStyle,spectrumType,cmin,cmax, holdOnState, saveMPFlag,loadProtocolNumber,plotLineWidth,...
-            Nstd,NE,gaussFtr,saveHHTFlag,protocolName,useAllBadTrials);
+            Nstd,NE,gaussFtr,saveHHTFlag,protocolName,useAllBadTrials,ignoreTrials,ignoreTrialNum,mpAnalyzeEpochs);
         
     
     end
@@ -1792,7 +1831,7 @@ end
             tfMethod,mtmParams,movingWin,numAtomsMP,plotStyle,spectrumType,cmin,cmax, holdOnState, saveMPFlag,loadProtocolNumber,plotLineWidth,...
             Nstd,NE,gaussFtr,saveHHTFlag,protocolName,useAllBadTrials,...
             refType,refCombineType,refDiffType,numElectrodes,intersectTrials,...
-            takeLogTrial,existsBipolarData,contralateralNeighbour);
+            takeLogTrial,existsBipolarData,contralateralNeighbour,ignoreTrials,ignoreTrialNum);
         
     
  end
@@ -1830,6 +1869,14 @@ end
 
 function selNumTrials_Callback(hObject,~,~)
        nShow = get(hObject,'val');
+end
+
+function ignoreTrials_Callback(hObject,~,~)
+       ignoreTrials = get(hObject,'val');
+end
+
+function ignoreTrialNum_Callback(hObject,~,~)
+       ignoreTrialNum = str2double(get(hIgnoreTrialNum,'String'));
 end
 
 % -------------------------------------------------------------------------
@@ -1926,12 +1973,14 @@ function plotGrid_Callback(~,~)
             analysisType,timeVals,plotColor,BLMin,BLMax,STMin,STMax,folderName, protocolNumber, notchData,useBipolar,plotSEM,holdOnState,plotLineWidth,...
             protocolName,useAllBadTrials,mtmParams,movingWin,fBandLow,fBandHigh,...
             neuralChannelsStored,SourceUnitIDs,STAMin,STAMax,removeMeanSTA,folderSpikes,cmin,cmax,fftmin,fftmax,tmin,tmax,drawStim,drawERP,drawFR,drawTF,drawTrends,...
-            subjectName,expDate,gridType,analogChannelsStored);
+            subjectName,expDate,gridType,analogChannelsStored,ignoreTrials,ignoreTrialNum);
 
 
-        if analysisType==1 || analysisType==4 || analysisType==5 || analysisType==6 || analysisType==7 % ERP or Band Power or Spikes (vs time)
+        if analysisType==1 || analysisType==4 || analysisType==5 || analysisType==6 || analysisType==7 || analysisType==9 % ERP or Band Power or Spikes (vs time)
             xMin = str2double(get(hStimMin,'String'));
             xMax = str2double(get(hStimMax,'String'));
+        elseif analysisType == 10
+            xMin = 0; xMax = 48;
         else
             xMin = str2double(get(hFFTMin,'String'));
             xMax = str2double(get(hFFTMax,'String'));
@@ -1952,7 +2001,7 @@ function plotLFPSpikeDataVaryParameters1Channel(plotHandles,channelString,analog
 analysisType,timeVals,plotColor,BLMin,BLMax,STMin,STMax,folderName, protocolNumber, notchData,useBipolar,plotSEM,holdOnState,plotLineWidth,...
 protocolName,useAllBadTrials,mtmParams,movingWin,fBandLow,fBandHigh,...
 spikeChannelNumber,unitID,STAMin,STAMax,removeMeanSTA,folderSpikes,cmin,cmax,fftmin,fftmax,tmin,tmax,drawStim,drawERP,drawFR,drawTF,drawTrends,...
-subjectName,expDate,gridType,title1ON,title2ON,nShow)
+subjectName,expDate,gridType,title1ON,title2ON,nShow,ignoreTrials,ignoreTrialNum)
 
 folderExtract = fullfile(folderName,'extractedData');
 folderSegment = fullfile(folderName,'segmentedData');
@@ -1988,6 +2037,10 @@ else
     existsBadTrialFile = 1;
 end
 
+if ignoreTrials
+    badTrials = union(badTrials,ignoreTrialNum);
+    disp(['Ignoring trials: ' num2str(ignoreTrialNum)]);
+end
 
 % Choosing the good position trials
 if strncmp(protocolName,'GRF',3)
@@ -2298,13 +2351,6 @@ if analysisType == 8 % get all plots
     
 end
 %==========================================================================
-if analysisType == 9 % Plot the Grid
-    
-    figure;
-    
-    
-end
-%==========================================================================
 
 % Main loop
 computationVals=zeros(1,numCols);
@@ -2571,7 +2617,13 @@ for k=1:numRows
                     analogData = analogData1 - analogData2;
                 end
 
-                if analysisType == 1        % compute ERP
+                if analysisType == 1  || analysisType == 9      % compute ERP
+                    
+                    if analysisType == 9
+                        plot(plotHandles(k,j),timeVals,analogData(goodPos,:));
+                    end
+                    set(plotHandles(k,j),'Nextplot','add');
+                    
                     clear erp
                     erp = mean(analogData(goodPos,:),1);
 
@@ -2698,6 +2750,15 @@ for k=1:numRows
                                 
                     end
                     
+                    if analysisType == 10 % show spikes
+                        clear meanSpikeWaveform
+                        load(fullfile(folderSegment,'Segments',['elec' num2str(spikeChannelNumber) '.mat']));
+                        plot(plotHandles(k,j),segmentData,'color',plotColor);
+                        meanSpikeWaveform = mean(segmentData,2);
+                        set(plotHandles(k,j),'Nextplot','add');
+                        plot(plotHandles(k,j),meanSpikeWaveform,'color',[0.6 0.8 0.8],'Linewidth',plotLineWidth);
+                        set(plotHandles(k,j),'Nextplot','replace');
+                    end
                     
                     
                     if analysisType == 5 || analysisType == 6
@@ -2788,7 +2849,7 @@ for k=1:numRows
                             end
 
                             set(allplotsHandles(kx,jx),'xlim',[tmin tmax]);
-                            set(allplotsHandles(kx,jx),'ylim',[-500 300]);
+%                             set(allplotsHandles(kx,jx),'ylim','auto');
                             
                         end
                         
@@ -3129,7 +3190,7 @@ function plotLFPSpikeDataVaryParametersGrid(plotHandles,analogChannelStringArray
 analysisType,timeVals,plotColor,BLMin,BLMax,STMin,STMax,folderName, protocolNumber, notchData,useBipolar,plotSEM,holdOnState,plotLineWidth,...
 protocolName,useAllBadTrials,mtmParams,movingWin,fBandLow,fBandHigh,...
 neuralChannelsStored,SourceUnitIDs,STAMin,STAMax,removeMeanSTA,folderSpikes,cmin,cmax,fftmin,fftmax,tmin,tmax,drawStim,drawERP,drawFR,drawTF,drawTrends,...
-subjectName,expDate,gridType,analogChannelsStored)
+subjectName,expDate,gridType,analogChannelsStored,ignoreTrials,ignoreTrialNum)
 
 folderExtract = fullfile(folderName,'extractedData');
 folderSegment = fullfile(folderName,'segmentedData');
@@ -3156,6 +3217,10 @@ else
     existsBadTrialFile = 1;
 end
 
+if ignoreTrials
+    badTrials = union(badTrials,ignoreTrialNum);
+    disp(['Ignoring trials: ' num2str(ignoreTrialNum)]);
+end
 
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 % Choosing the good position trials
@@ -3391,7 +3456,7 @@ else
 
             spikeChannelNumber = [];
             unitID = [];
-            if analysisType == 5 || analysisType == 6 || analysisType==7 || analysisType==8 % Spike related
+            if analysisType == 5 || analysisType == 6 || analysisType==7 || analysisType==8 || analysisType == 10 % Spike related
 
                 if strncmp(gridType,'Microelectrode',5)
                     spikeChannelNumber = neuralChannelsStored(ne);
@@ -3426,7 +3491,13 @@ else
             end
 
 
-                if analysisType == 1        % compute ERP
+                if analysisType == 1 || analysisType == 9       % compute ERP
+                    
+                    if analysisType == 9
+                        plot(plotHandles(k,j),timeVals,analogData(goodPos,:));
+                    end
+                    set(plotHandles(k,j),'Nextplot','add');
+                    
                     clear erp
                     erp = mean(analogData(goodPos,:),1);
 
@@ -3540,6 +3611,17 @@ else
                                 
                     end
                     
+                    if analysisType == 10 % show spikes
+                        clear meanSpikeWaveform
+                        if ~isempty(spikeChannelNumber)
+                            load(fullfile(folderSegment,'Segments',['elec' num2str(spikeChannelNumber) '.mat']));
+                            plot(plotHandles(k,j),segmentData,'color',plotColor);
+                            meanSpikeWaveform = mean(segmentData,2);
+                            set(plotHandles(k,j),'Nextplot','add');
+                            plot(plotHandles(k,j),meanSpikeWaveform,'color',[0.6 0.8 0.8],'Linewidth',plotLineWidth);
+                            set(plotHandles(k,j),'Nextplot','replace');
+                        end
+                    end
                     
                     
                     if analysisType == 5 || analysisType == 6
@@ -4325,7 +4407,7 @@ end
 function tfplotLFPDataVaryParameters1Channel(tfplotHandles,channelString,analogChannelString2,a,e,s,f,o,c,t,r,p,gaborNum1,paramNum1,gaborNum2,paramNum2,folderLFP,...
             timeVals,plotColor,BLMin,BLMax,STMin,STMax,folderName, protocolNumber, notchData,useBipolar,...
             tfMethod,mtmParams,movingWin,numAtomsMP,plotStyle,spectrumType,cmin,cmax,holdOnState,saveMPFlag,loadProtocolNumber,plotLineWidth,...
-            Nstd,NE,gaussFtr,saveHHTFlag,protocolName,useAllBadTrials)
+            Nstd,NE,gaussFtr,saveHHTFlag,protocolName,useAllBadTrials,ignoreTrials,ignoreTrialNum,mpAnalyzeEpochs)
         
         
         folderExtract = fullfile(folderName,'extractedData');
@@ -4368,6 +4450,10 @@ function tfplotLFPDataVaryParameters1Channel(tfplotHandles,channelString,analogC
             existsBadTrialFile = 1;
         end
         
+        if ignoreTrials
+            badTrials = union(badTrials,ignoreTrialNum);
+            disp(['Ignoring trials: ' num2str(ignoreTrialNum)]);
+        end
         
         % Choosing the good position trials
 if strncmp(protocolName,'GRF',3)
@@ -5179,6 +5265,80 @@ end
                             end
                         end
                         
+                    elseif mpAnalyzeEpochs
+                        
+                        folderSaveMP1 = fullfile(folderSaveMP,'epoch1',num2str(channelString));
+                        folderSaveMP2 = fullfile(folderSaveMP,'epoch2',num2str(channelString));
+                        makeDirectory(folderSaveMP1);
+                        makeDirectory(folderSaveMP2);
+                        
+                        if strncmp(protocolName,'GRF',3)
+                            mpSavedSpectrumName1 = (['mpSpectrum' num2str(numAtomsMP) 'atoms' '_notch' num2str(notchData)...
+                                'pos_' tagPos '_protoGRF'...
+                                '_vary' num2str(paramNum1) num2str(paramNum2) '_epoch1']);
+                            mpSavedSpectrumName2 = (['mpSpectrum' num2str(numAtomsMP) 'atoms' '_notch' num2str(notchData)...
+                                'pos_' tagPos '_protoGRF'...
+                                '_vary' num2str(paramNum1) num2str(paramNum2) '_epoch2']);
+                        elseif strncmp(protocolName,'CRS',3)
+                            mpSavedSpectrumName1 = (['mpSpectrum' num2str(numAtomsMP) 'atoms' '_notch' num2str(notchData)...
+                                'pos_' tagPos '_proto' num2str(loadProtocolNumber)...
+                                '_vary' num2str(gaborNum1) num2str(paramNum1) num2str(gaborNum2) num2str(paramNum2) '_epoch1']);
+                            mpSavedSpectrumName2 = (['mpSpectrum' num2str(numAtomsMP) 'atoms' '_notch' num2str(notchData)...
+                                'pos_' tagPos '_proto' num2str(loadProtocolNumber)...
+                                '_vary' num2str(gaborNum1) num2str(paramNum1) num2str(gaborNum2) num2str(paramNum2) '_epoch2']);
+                        end
+                        
+                        if (exist(fullfile(folderSaveMP1,[mpSavedSpectrumName1 '.mat']),'file') && exist(fullfile(folderSaveMP2,[mpSavedSpectrumName2 '.mat']),'file') && saveMPFlag)
+                            disp('loading saved spectrum data...');
+                            load(fullfile(folderSaveMP1,[mpSavedSpectrumName1 '.mat']));
+                            mpBL = mpSpectrum;
+                            clear mpSpectrum
+                            load(fullfile(folderSaveMP2,[mpSavedSpectrumName2 '.mat']));
+                            mpST = mpSpectrum;
+                            load(fullfile(mpFolder,'epoch2','mptimeVals.mat'));
+                            L = length(mptimeVals);
+                        else
+                            for ii=1:2
+                                clear tag gaborInfo
+                                tag = channelString;
+                                load(fullfile(mpFolder,['epoch' num2str(ii)],tag,'gaborInfo.mat'));
+                                gaborInfoGoodPos = gaborInfo(goodPos);
+
+                                load(fullfile(mpFolder,['epoch' num2str(ii)],'mptimeVals.mat'));
+                                L = length(mptimeVals);
+                                wrap = [];
+                                atomList = (1:numAtomsMP);
+                                mpSpectrum = [];
+                                disp(['Reconstructing Energy from:' num2str(numAtomsMP) ' atoms, and'  num2str(length(goodPos)) ' trials']);
+                                for m=1:length(goodPos)
+                                    disp(['trial number:' num2str(m) '(actual trial -)' num2str(goodPos(m))]);
+                                    rEnergy = reconstructEnergyFromAtomsMPP(gaborInfoGoodPos{m}.gaborData,L,wrap,atomList);
+                                    if m == 1
+                                        mpSpectrum = rEnergy;
+                                    else
+                                        mpSpectrum = mpSpectrum + rEnergy;
+                                    end
+                                end
+                                mpSpectrum = mpSpectrum/length(goodPos);
+
+                                if saveMPFlag
+                                    disp('saving spectrum data...');
+                                    if ii==1
+                                        save(fullfile(folderSaveMP1,mpSavedSpectrumName1), 'mpSpectrum');
+                                        mpBL = mpSpectrum;
+                                        clear mpSpectrum
+                                    else
+                                        save(fullfile(folderSaveMP2,mpSavedSpectrumName2), 'mpSpectrum');
+                                        mpST = mpSpectrum;
+                                        clear mpSpectrum
+                                    end
+                                end
+                                
+                                
+                            end
+                        
+                        end
+                        
                     else
                         
                         folderSaveMP = fullfile(folderSaveMP,num2str(channelString));
@@ -5230,71 +5390,111 @@ end
                         end
                     end
                     
-                    mpSpectrum = mpSpectrum'; % transpose so that first index corresponds to 'time' and second to 'freq'
-                    
-                    t = timeVals;
-                    f = 0:Fs/L:Fs/2; 
-                    
-                    % plot the MP Spectrum
-                    if plotStyle == 3 % line plot
-                        disp('No line plot for MP method');
+                    if mpAnalyzeEpochs
+                        mpSpectrum = mpST'; % transpose so that first index corresponds to 'time' and second to 'freq'
+                        t = mptimeVals;
+                        f = 0:Fs/L:Fs/2;
                         
-                    elseif plotStyle == 1 % pcolor plot
-                        
-                        if (spectrumType == 1) % raw
-                            pcolor(tfplotHandles(k,j),t,f,conv2Log(mpSpectrum')); 
-                            shading(tfplotHandles(k,j),'interp');
-                            caxis([cmin cmax]);
+                        if plotStyle == 3 % line plot
+                            disp('No line plot for MP method');
                             
-                        elseif(spectrumType == 2) % difference from baseline                            
-                            % baseline period calculation
-                            tBL = (t>=BLMin) & (t<=BLMax); % baseline time indices
-                            mpSpectrumBL = mpSpectrum(tBL,:); % part of spectrum corresponding to the baseline period
-                            mlogmpSpectrumBL = mean(conv2Log(mpSpectrumBL),1); % mean log power 
-                            % across these time points at every frequency
-
-                            % difference spectrum calculation
-                            dmpSpectrum = 10*(conv2Log(mpSpectrum) - repmat(mlogmpSpectrumBL,size(mpSpectrum,1),1)); % in dB 
-                            % subtract the mean baseline power at each
-                            % frequency from the raw power at that frequency at
-                            % every time point
-
-                            % plot the difference spectrum
-                            pcolor(tfplotHandles(k,j),t,f,dmpSpectrum'); 
-                            shading(tfplotHandles(k,j),'interp');
-                            caxis([cmin cmax]);
+                        elseif plotStyle == 1 % pcolor plot
+                            
+                            if (spectrumType == 1) % raw
+                                pcolor(tfplotHandles(k,j),t,f,conv2Log(mpSpectrum')); 
+                                shading(tfplotHandles(k,j),'interp');
+                                caxis([cmin cmax]);
+                                
+                            elseif (spectrumType == 2) % difference from baseline
+                                dmpSpectrum = 10*(conv2Log(mpST) - repmat(mean(conv2Log(mpBL),2),1,size(mpST,2)));
+                                pcolor(tfplotHandles(k,j),t,f,dmpSpectrum); 
+                                shading(tfplotHandles(k,j),'interp');
+                                caxis([cmin cmax]);
+                            end
+                                
+                        elseif plotStyle == 2 % imagesc plot
+                            
+                            if (spectrumType == 1) % raw
+                                imagesc(t,f,conv2Log(mpSpectrum'),'Parent',tfplotHandles(k,j)); 
+                                axis(tfplotHandles(k,j),'xy');
+                                set(tfplotHandles(k,j),'cLim',[cmin cmax]);
+                                
+                            elseif (spectrumType == 2) % difference from baseline
+                                dmpSpectrum = 10*(conv2Log(mpST) - repmat(mean(conv2Log(mpBL),2),1,size(mpST,2)));
+                                imagesc(t,f,dmpSpectrum,'Parent',tfplotHandles(k,j)); 
+                                axis(tfplotHandles(k,j),'xy');
+                                set(tfplotHandles(k,j),'cLim',[cmin cmax]);
+                            end
                         end
                         
-                    elseif plotStyle == 2 % imagesc plot
-                        
-                        if (spectrumType == 1) % raw
-                            imagesc(t,f,conv2Log(mpSpectrum'),'Parent',tfplotHandles(k,j)); 
-                            axis(tfplotHandles(k,j),'xy'); % for imagesc every 
-                            % parameter has to be set using the plot handles 
-                            % explicitly 
-                            set(tfplotHandles(k,j),'cLim',[cmin cmax]);
-                            
-                        elseif(spectrumType == 2) % difference from baseline                            
-                            % baseline period calculation
-                            tBL = (t>=BLMin) & (t<=BLMax); % baseline time indices
-                            mpSpectrumBL = mpSpectrum(tBL,:); % part of spectrum corresponding to the baseline period
-                            mlogmpSpectrumBL = mean(conv2Log(mpSpectrumBL),1); % mean log power 
-                            % across these time points at every frequency
+                    else
+                    
+                        mpSpectrum = mpSpectrum'; % transpose so that first index corresponds to 'time' and second to 'freq'
 
-                            % difference spectrum calculation
-                            dmpSpectrum = 10*(conv2Log(mpSpectrum) - repmat(mlogmpSpectrumBL,size(mpSpectrum,1),1)); 
-                            % subtract the mean baseline power at each
-                            % frequency from the raw power at that frequency at
-                            % every time point
+                        t = timeVals;
+                        f = 0:Fs/L:Fs/2; 
 
-                            % plot the difference spectrum
-                            imagesc(t,f,dmpSpectrum','Parent',tfplotHandles(k,j)); 
-                            axis(tfplotHandles(k,j),'xy'); % for imagesc every 
-                            % parameter has to be set using the plot handles 
-                            % explicitly 
-                            set(tfplotHandles(k,j),'cLim',[cmin cmax]);
+                        % plot the MP Spectrum
+                        if plotStyle == 3 % line plot
+                            disp('No line plot for MP method');
+
+                        elseif plotStyle == 1 % pcolor plot
+
+                            if (spectrumType == 1) % raw
+                                pcolor(tfplotHandles(k,j),t,f,conv2Log(mpSpectrum')); 
+                                shading(tfplotHandles(k,j),'interp');
+                                caxis([cmin cmax]);
+
+                            elseif(spectrumType == 2) % difference from baseline                            
+                                % baseline period calculation
+                                tBL = (t>=BLMin) & (t<=BLMax); % baseline time indices
+                                mpSpectrumBL = mpSpectrum(tBL,:); % part of spectrum corresponding to the baseline period
+                                mlogmpSpectrumBL = mean(conv2Log(mpSpectrumBL),1); % mean log power 
+                                % across these time points at every frequency
+
+                                % difference spectrum calculation
+                                dmpSpectrum = 10*(conv2Log(mpSpectrum) - repmat(mlogmpSpectrumBL,size(mpSpectrum,1),1)); % in dB 
+                                % subtract the mean baseline power at each
+                                % frequency from the raw power at that frequency at
+                                % every time point
+
+                                % plot the difference spectrum
+                                pcolor(tfplotHandles(k,j),t,f,dmpSpectrum'); 
+                                shading(tfplotHandles(k,j),'interp');
+                                caxis([cmin cmax]);
+                            end
+
+                        elseif plotStyle == 2 % imagesc plot
+
+                            if (spectrumType == 1) % raw
+                                imagesc(t,f,conv2Log(mpSpectrum'),'Parent',tfplotHandles(k,j)); 
+                                axis(tfplotHandles(k,j),'xy'); % for imagesc every 
+                                % parameter has to be set using the plot handles 
+                                % explicitly 
+                                set(tfplotHandles(k,j),'cLim',[cmin cmax]);
+
+                            elseif(spectrumType == 2) % difference from baseline                            
+                                % baseline period calculation
+                                tBL = (t>=BLMin) & (t<=BLMax); % baseline time indices
+                                mpSpectrumBL = mpSpectrum(tBL,:); % part of spectrum corresponding to the baseline period
+                                mlogmpSpectrumBL = mean(conv2Log(mpSpectrumBL),1); % mean log power 
+                                % across these time points at every frequency
+
+                                % difference spectrum calculation
+                                dmpSpectrum = 10*(conv2Log(mpSpectrum) - repmat(mlogmpSpectrumBL,size(mpSpectrum,1),1)); 
+                                % subtract the mean baseline power at each
+                                % frequency from the raw power at that frequency at
+                                % every time point
+
+                                % plot the difference spectrum
+                                imagesc(t,f,dmpSpectrum','Parent',tfplotHandles(k,j)); 
+                                axis(tfplotHandles(k,j),'xy'); % for imagesc every 
+                                % parameter has to be set using the plot handles 
+                                % explicitly 
+                                set(tfplotHandles(k,j),'cLim',[cmin cmax]);
+                            end
+
                         end
-                        
                     end
                     
 %------------------------------------------------------------------------                  
@@ -5651,7 +5851,7 @@ function reftfplotLFPDataVaryParameters1Channel(tfplotHandles,channelString,anal
             tfMethod,mtmParams,movingWin,numAtomsMP,plotStyle,spectrumType,cmin,cmax,holdOnState,saveMPFlag,loadProtocolNumber,plotLineWidth,...
             Nstd,NE,gaussFtr,saveHHTFlag,protocolName,useAllBadTrials,...
             refType,refCombineType,refDiffType,numElectrodes,intersectTrials,...
-            takeLogTrial,existsBipolarData,contralateralNeighbour)
+            takeLogTrial,existsBipolarData,contralateralNeighbour,ignoreTrials,ignoreTrialNum)
         
         folderExtract = fullfile(folderName,'extractedData');
         folderSegment = fullfile(folderName,'segmentedData');
@@ -5699,6 +5899,10 @@ function reftfplotLFPDataVaryParameters1Channel(tfplotHandles,channelString,anal
             existsBadTrialFile = 1;
         end
         
+        if ignoreTrials
+            badTrials = union(badTrials,ignoreTrialNum);
+            disp(['Ignoring trials: ' num2str(ignoreTrialNum)]);
+        end
 
         % Choosing the good position trials
 if strncmp(protocolName,'GRF',3)
